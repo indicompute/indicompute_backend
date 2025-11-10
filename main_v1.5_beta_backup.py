@@ -26,13 +26,8 @@ from schemas import (
     NodePricingCreate, NodePricingOut, NodeEarningOut,
     WalletTransactionOut, WalletBalanceOut,
     GPUExecutionLogCreate, GPUExecutionLogOut,
-    NodeEarningsDashboard, Token
+    NodeEarningsDashboard
 )
-from pydantic import BaseModel
-
-class WalletTopupRequest(BaseModel):
-    amount: float
-
 from auth import (
     hash_password, verify_password,
     create_access_token, get_current_user,
@@ -76,30 +71,25 @@ def list_public_gpu_nodes(db: Session = Depends(get_db)):
 # =====================================================
 # ============== AUTH SECTION =========================
 # =====================================================
-# ------------------ SIGNUP ------------------
-# ---------- SIGNUP ----------
-@app.post("/signup", response_model=Token, tags=["Auth"])
-def signup_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
-    new_user = signup_user(
-        email=user.email,
-        username=user.username,
-        full_name=user.full_name,
-        password=user.password,
-        db=db
+@app.post("/signup", response_model=UserResponse, tags=["Auth"])
+def signup(data: UserCreate, db: Session = Depends(get_db)):
+    return signup_user(
+        email=data.email,
+        username=data.username,
+        full_name=data.full_name,
+        password=data.password,
+        db=db,
     )
 
-    token = create_access_token({"user_id": new_user.id, "email": new_user.email})
-    return {"access_token": token, "token_type": "bearer"}
 
-
-# ---------- LOGIN ----------
-@app.post("/login", response_model=Token, tags=["Auth"])
-def login_user_endpoint(data: LoginSchema, response: Response, db: Session = Depends(get_db)):
-    result = login_user(email=data.email, password=data.password, response=response, db=db)
-    return {"access_token": result["access_token"], "token_type": result["token_type"]}
-
-
-
+@app.post("/login", tags=["Auth"])
+def login(data: LoginSchema, response: Response, db: Session = Depends(get_db)):
+    return login_user(
+        email=data.email,
+        password=data.password,
+        response=response,
+        db=db,
+    )
 
 
 @app.get("/me", response_model=UserResponse, tags=["Auth"])
@@ -173,11 +163,11 @@ def delete_gpu_node(node_id: int,
     db.commit()
     return {"detail": "GPU node deleted"}
 
-@app.post("/gpu-nodes/register", tags=["GPU Nodes"])
-def register_gpu_node(data: NodeRegisterRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)):
 
+@app.post("/register-node", response_model=NodeRegisterResponse, tags=["GPU"])
+def register_node(data: NodeRegisterRequest,
+                  current_user: User = Depends(get_current_user),
+                  db: Session = Depends(get_db)):
     node_key = secrets.token_hex(16)
     node = GPUNode(
         owner_id=current_user.id,
@@ -257,7 +247,6 @@ def get_gpu_nodes_details_public(db: Session = Depends(get_db)):
             "price_per_hour": price_per_hour,
             "currency": currency,
             "last_active": last_active.isoformat() if last_active else None,
-            "node_key": getattr(n, "node_key", None),
         })
     return results
 
@@ -383,94 +372,12 @@ def mark_job_complete(job_id: int, db: Session = Depends(get_db), current_user: 
     db.refresh(job)
     return job
 
-# Add this under your Jobs section in main.py (below other job endpoints)
-
-from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
-
-@app.post("/simulate-job-complete/{job_id}", response_model=JobResponse, tags=["Jobs"])
-def simulate_job_complete(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """
-    Testing endpoint (protected): mark job complete and credit node owner.
-    Idempotent: if job already completed, just returns the job.
-    Use this for testing earnings flow (simulate node reporting job finish).
-    """
-    # 1) load job
-    job = db.query(Job).filter(Job.id == job_id).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    # optional: restrict who can call this (owner of node or the user who submitted the job or admin)
-    node = db.query(GPUNode).filter(GPUNode.id == job.node_id).first()
-    if not node:
-        raise HTTPException(status_code=404, detail="Node not found")
-
-    # Allow only: job submitter OR node owner OR any authenticated user with same id (for testing)
-    if current_user.id not in (job.user_id, node.owner_id):
-        # you can relax this if you want testers to call it — change as needed
-        raise HTTPException(status_code=403, detail="Not allowed to complete this job")
-
-    # If already completed, return it (idempotent)
-    if job.status == "completed":
-        return job
-
-    # Determine payout amount: from pricing or fallback
-    pricing = db.query(NodePricing).filter(NodePricing.node_id == node.id).first()
-    price_per_hour = float(pricing.price_per_hour) if pricing and pricing.price_per_hour is not None else 10.0
-
-    # Wrap modifications in transaction for safety
-    try:
-        # Start transaction block
-        # Deduct at submission is already handled in submit_job. Here we only credit owner and record earning & tx.
-        job.status = "completed"
-        job.result = f"✅ Job '{job.command}' marked completed by simulate endpoint."
-
-        # Create earning record
-        earning = NodeEarning(node_id=node.id, amount=price_per_hour, currency=(pricing.currency if pricing else "INR"))
-        db.add(earning)
-
-        # Credit owner wallet
-        owner = db.query(User).filter(User.id == node.owner_id).with_for_update().first()
-        if owner:
-            owner.wallet_balance = (owner.wallet_balance or 0.0) + price_per_hour
-            tx_owner = WalletTransaction(
-                user_id=owner.id,
-                type="credit",
-                amount=price_per_hour,
-                description=f"Payout for job {job.id}"
-            )
-            db.add(tx_owner)
-        else:
-            # Should not happen normally
-            raise HTTPException(status_code=500, detail="Owner not found during payout")
-
-        # Optional: add NodeActivityLog
-        db.add(NodeActivityLog(node_id=node.id, event_type="job_completed", message=f"Job {job.id} completed."))
-
-        db.commit()
-        db.refresh(job)
-        return job
-    except SQLAlchemyError as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Database error during simulate complete")
-    from typing import List
-
-@app.get("/user-jobs", response_model=List[JobResponse], tags=["Jobs"])
-def get_user_jobs(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """
-    Return all jobs submitted by the currently logged-in user.
-    """
-    jobs = db.query(Job).filter(Job.user_id == current_user.id).order_by(Job.id.desc()).all()
-    return jobs
-
 
 # ---------- Wallet ----------
 @app.post("/wallet/topup", response_model=WalletBalanceOut, tags=["Wallet"])
-def wallet_topup(data: WalletTopupRequest,  
+def wallet_topup(amount: float = Query(...), 
                  current_user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
-    amount = data.amount
-
     # ✅ Validation
     if amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
@@ -498,7 +405,7 @@ def wallet_topup(data: WalletTopupRequest,
 
 @app.get("/wallet/balance", response_model=WalletBalanceOut, tags=["Wallet"])
 def get_wallet_balance(current_user: User = Depends(get_current_user)):
-    return {"user_id": current_user.id,"username": current_user.username, "wallet_balance": current_user.wallet_balance or 0.0}
+    return {"user_id": current_user.id, "wallet_balance": current_user.wallet_balance or 0.0}
 
 
 @app.get("/wallet/transactions", response_model=List[WalletTransactionOut], tags=["Wallet"])
