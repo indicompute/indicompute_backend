@@ -13,9 +13,8 @@ from models import User
 # =====================================================
 # JWT + Password Config
 # =====================================================
-SECRET_KEY = "CHANGE_ME_TO_A_RANDOM_SECRET"  # Change later to secure random
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+from main import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=True)

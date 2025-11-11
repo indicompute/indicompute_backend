@@ -1,10 +1,27 @@
 # main.py (Stable, error-free)
 # --- main.py (Stable + Error-free + Ready for Production) ---
-import os
+
 import sys
 import secrets
 from datetime import datetime
 from typing import List
+import os
+
+from dotenv import load_dotenv
+
+# ✅ Correct logger import (safe local import)
+import log_config
+logger = log_config.setup_logger()
+
+
+# ye line env file load karti hai
+load_dotenv()
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
+
+
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,6 +62,11 @@ app = FastAPI(
     version="1.5",
     description="Block F + Block G — GPU Rent + Billing + Wallet + Logs"
 )
+@app.get("/healthz", tags=["System"])
+def health_check():
+    logger.info("Health check endpoint called successfully.")
+    return {"status": "ok"}
+
 
 # Create DB tables (dev). For production use alembic migrations.
 Base.metadata.create_all(bind=engine)
