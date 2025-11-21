@@ -3,18 +3,22 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 import os
 
-# Render + Neon ke liye URL fix
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Agar Neon se "postgresql://" aaya toh +psycopg2 bana do
-if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
-    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+# Neon ke liye driver add kar (safe way)
+if SQLALCHEMY_DATABASE_URL:
+    if "neon.tech" in SQLALCHEMY_DATABASE_URL:
+        if not SQLALCHEMY_DATABASE_URL.startswith("postgresql+psycopg2://"):
+            SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
     pool_pre_ping=True,
     pool_recycle=300,
-    connect_args={"sslmode": "require"} if "neon.tech" in SQLALCHEMY_DATABASE_URL else {}
+    connect_args={
+        "sslmode": "require",
+        "channel_binding": "require"  # Neon ke liye zaroori
+    } if "neon.tech" in SQLALCHEMY_DATABASE_URL else {}
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
