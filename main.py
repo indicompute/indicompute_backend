@@ -66,6 +66,15 @@ app = FastAPI(
 def health_check():
     logger.info("Health check endpoint called successfully.")
     return {"status": "ok"}
+@app.get("/db-test")
+def db_test():
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT 1"))
+            return {"database": "connected"}
+    except Exception as e:
+        return {"error": str(e)}
+
 
 
 # Create DB tables (dev). For production use alembic migrations.
@@ -76,11 +85,13 @@ bearer_scheme = HTTPBearer(auto_error=True)
 # ---------- CORS ----------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # dev only
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 
 # ========================
 # Public Marketplace GPU listing (no auth required)
