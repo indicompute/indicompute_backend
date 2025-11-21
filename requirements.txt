@@ -1,20 +1,18 @@
-# ---------- FastAPI Core ----------
 fastapi==0.119.1
 uvicorn==0.38.0
 starlette==0.48.0
 
-# ---------- Authentication ----------
 bcrypt==3.2.0
 python-jose==3.3.0
 passlib==1.7.4
 PyJWT==2.3.0
 
-# ---------- ORM & Database ----------
 SQLAlchemy==2.0.44
+psycopg2-binary==2.9.9
+
 pydantic==2.12.3
 pydantic_core==2.41.4
-psycopg2-binary==2.9.9
-# ---------- Utilities ----------
+
 python-dotenv==1.0.1
 requests==2.31.0
 typing_extensions==4.15.0
