@@ -89,7 +89,7 @@ def login_user(email: str, password: str, response: Response, db: Session):
         value=token,
         httponly=True,
         samesite="none",
-        secure=true,
+        secure=True,
         domain=".indicompute.in",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
