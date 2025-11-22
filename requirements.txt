@@ -1,14 +1,9 @@
-fastapi==0.119.1
-uvicorn==0.38.0
-starlette==0.48.0
-bcrypt==3.2.0
-python-jose==3.3.0
-passlib==1.7.4
-PyJWT==2.3.0
-sqlalchemy==2.0.44
-pydantic==2.12.3
-pydantic-core==2.41.4
-psycopg[binary,pool]==3.2.1  # ← yeh daal (binary nahi, pure Python – Render pe chalega)
-python-dotenv==1.0.1
-requests==2.31.0
-typing-extensions==4.15.0
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+psycopg==3.2.3          # ← sirf yeh daal (binary nahi, pure Python – Render pe 100% chalega)
+python-dotenv
+bcrypt
+passlib
+pyjwt
