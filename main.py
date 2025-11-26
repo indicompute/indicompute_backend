@@ -85,7 +85,9 @@ bearer_scheme = HTTPBearer(auto_error=True)
 # ---------- CORS ----------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://app.indicompute.in"],
+    allow_origins=["https://app.indicompute.in",
+                   "https://indicompute-frontend.vercel.app",
+],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
