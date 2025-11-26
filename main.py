@@ -86,7 +86,6 @@ bearer_scheme = HTTPBearer(auto_error=True)
 
 origins = [
     "https://app.indicompute.in",
-    "https://indicompute-frontend.vercel.app",
 ]
 
 app.add_middleware(
