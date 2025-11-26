@@ -17,3 +17,6 @@ __pycache__/
 
 # Ignore logs
 *.log
+test_flow.py
+auth_jwt.py
+auth_utils.py
