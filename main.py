@@ -83,15 +83,20 @@ Base.metadata.create_all(bind=engine)
 bearer_scheme = HTTPBearer(auto_error=True)
 
 # ---------- CORS ----------
+
+origins = [
+    "https://app.indicompute.in",
+    "https://indicompute-frontend.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://app.indicompute.in",
-                   "https://indicompute-frontend.vercel.app",
-],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 
