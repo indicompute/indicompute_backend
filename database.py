@@ -3,31 +3,38 @@
 import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from dotenv import load_dotenv
 
-# 1) yahi se DB URL aayega (Render ke env se)
+# 1) ENV load
+load_dotenv()
+
+# 2) ENV se URL read karo
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# 3) Agar DATABASE_URL nahi hai → Local SQLite fallback
 if not DATABASE_URL:
-    # local testing ke liye (agar env set nahi hai)
-    # yaha tum apna local Postgres ya SQLite rakh sakte ho
-    # फिलहाल कम से कम crash na ho isliye simple message:
-    print("⚠ WARNING: DATABASE_URL not set, using local SQLite")
+    print("⚠ WARNING: DATABASE_URL not set → using local SQLite (local.db)")
     DATABASE_URL = "sqlite:///./local.db"
 
-# 2) PostgreSQL / normal URLs ke liye simple engine
+# 4) SQLite ke liye special arg; PostgreSQL ke liye nahi
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+# 5) Engine create → PostgreSQL / SQLite automatic
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,
+    connect_args=connect_args,
+    pool_pre_ping=True
 )
 
-# 3) Session factory
+# 6) Session Factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# 4) Base class for all models
+# 7) Base Model
 Base = declarative_base()
 
-
-# 5) Dependency (FastAPI routes me use hota hai)
+# 8) Dependency (FastAPI routes ke liye)
 def get_db():
     db = SessionLocal()
     try:
