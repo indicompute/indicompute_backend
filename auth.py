@@ -12,18 +12,11 @@ import os
 
 from database import get_db
 from models import User
-
+from main import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # =====================================================
 # =============== ENV + JWT CONFIG ====================
 # =====================================================
-
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
-
-if not SECRET_KEY:
-    print("⚠️ WARNING: SECRET_KEY NOT FOUND IN ENV!!")
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
