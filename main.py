@@ -89,7 +89,7 @@ bearer_scheme = HTTPBearer(auto_error=True)
 # ---------- CORS ----------
 
 origins = [
-    "https://app.indicompute.in",
+    "*",
 ]
 
 app.add_middleware(
