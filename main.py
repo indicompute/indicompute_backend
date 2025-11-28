@@ -1,6 +1,3 @@
-# main.py (Stable, error-free)
-# --- main.py (Stable + Error-free + Ready for Production) ---
-
 import sys
 import secrets
 from datetime import datetime
@@ -9,14 +6,14 @@ import os
 
 from dotenv import load_dotenv
 
-# ✅ Correct logger import (safe local import)
+# Load environment variables
+load_dotenv()
+
+# Correct logger import
 import log_config
 logger = log_config.setup_logger()
 
-
-# ye line env file load karti hai
-load_dotenv()
-
+# DEBUG LOGS
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
@@ -24,8 +21,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440)
 print("DEBUG_SECRET_KEY=", SECRET_KEY)
 print("DEBUG_ALGO=", ALGORITHM)
 print("DEBUG_EXPIRE=", ACCESS_TOKEN_EXPIRE_MINUTES)
-
-
 
 from fastapi import FastAPI, Depends, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +33,7 @@ from models import (
     User, GPUNode, Job, NodeActivityLog,
     NodePricing, NodeEarning, WalletTransaction, GPUExecutionLog
 )
+
 from schemas import (
     UserCreate, UserResponse, LoginSchema,
     GPUNodeCreate, GPUNodeResponse, GPUNodeUpdate,
@@ -49,48 +45,53 @@ from schemas import (
     GPUExecutionLogCreate, GPUExecutionLogOut,
     NodeEarningsDashboard, Token
 )
+
 from pydantic import BaseModel
 
 class WalletTopupRequest(BaseModel):
     amount: float
 
+
+# AUTH IMPORTS
 from auth import (
     hash_password, verify_password,
     create_access_token, get_current_user,
     signup_user, login_user
 )
 
-# ---------- FASTAPI CONFIG ----------
+
+# ---------------- FASTAPI CONFIG ------------------
 app = FastAPI(
     title="IndiCompute API",
     version="1.5",
-    description="Block F + Block G — GPU Rent + Billing + Wallet + Logs"
+    description="GPU Rent + Billing + Wallet + Logs"
 )
+
+
 @app.get("/healthz", tags=["System"])
 def health_check():
     logger.info("Health check endpoint called successfully.")
     return {"status": "ok"}
+
+
 @app.get("/db-test")
 def db_test():
     try:
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT 1"))
+            conn.execute(text("SELECT 1"))
             return {"database": "connected"}
     except Exception as e:
         return {"error": str(e)}
 
 
-
-# Create DB tables (dev). For production use alembic migrations.
+# Create DB tables
 Base.metadata.create_all(bind=engine)
 
 bearer_scheme = HTTPBearer(auto_error=True)
 
-# ---------- CORS ----------
 
-origins = [
-    "*",
-]
+# --------------- CORS SETUP -------------------
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -101,28 +102,24 @@ app.add_middleware(
 )
 
 
-
-
-# ========================
-# Public Marketplace GPU listing (no auth required)
-# ========================
+# =====================================================
+# Public Marketplace GPU listing (NO AUTH)
+# =====================================================
 @app.get("/marketplace/gpu-nodes", response_model=List[GPUNodeResponse], tags=["Public"])
 def list_public_gpu_nodes(db: Session = Depends(get_db)):
-    # show only nodes marked public (safe: if model doesn't have is_public, default to True)
     if hasattr(GPUNode, "is_public"):
-        nodes = db.query(GPUNode).filter(GPUNode.is_public == True).all()
-    else:
-        nodes = db.query(GPUNode).all()
-    return nodes
+        return db.query(GPUNode).filter(GPUNode.is_public == True).all()
+    return db.query(GPUNode).all()
 
 
 # =====================================================
-# ============== AUTH SECTION =========================
+# ================== AUTH SECTION ======================
 # =====================================================
-# ------------------ SIGNUP ------------------
-# ---------- SIGNUP ----------
+
+# ---------------- SIGNUP ----------------------
 @app.post("/signup", response_model=Token, tags=["Auth"])
 def signup_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
+
     new_user = signup_user(
         email=user.email,
         username=user.username,
@@ -132,7 +129,9 @@ def signup_user_endpoint(user: UserCreate, db: Session = Depends(get_db)):
     )
 
     token = create_access_token({"user_id": new_user.id, "email": new_user.email})
+
     return {"access_token": token, "token_type": "bearer"}
+
 
 
 # ---------- LOGIN ----------

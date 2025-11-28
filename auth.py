@@ -1,7 +1,3 @@
-# =====================================================
-# ===================== IMPORTS ========================
-# =====================================================
-
 from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -13,32 +9,27 @@ import os
 from database import get_db
 from models import User
 
-
-# =====================================================
-# =============== ENV + JWT CONFIG ====================
-# =====================================================
-
+# Load env from main.py (already loaded globally)
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
 
-if not SECRET_KEY:
-    print("⚠️ WARNING: SECRET_KEY NOT FOUND IN ENV!!")
-
+# Check env loaded
+print("AUTH_SECRET_KEY =", SECRET_KEY)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=True)
 
 
 # =====================================================
-# =============== PASSWORD HASHING ====================
+# PASSWORD HASHING
 # =====================================================
-
 def hash_password(plain: str) -> str:
     """Fix bcrypt crash: truncate + clean string."""
     plain = str(plain).strip()
 
-    if len(plain) > 72:  # bcrypt limit
+    # bcrypt max input length = 72 bytes
+    if len(plain) > 72:
         plain = plain[:72]
 
     return pwd_context.hash(plain)
@@ -54,9 +45,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # =====================================================
-# =============== CREATE TOKEN ========================
+# CREATE JWT TOKEN
 # =====================================================
-
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
 
@@ -68,10 +58,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 # =====================================================
-# ======================= SIGNUP ======================
+# SIGNUP USER
 # =====================================================
-
 def signup_user(email: str, username: str, full_name: str, password: str, db: Session):
+
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -90,14 +80,15 @@ def signup_user(email: str, username: str, full_name: str, password: str, db: Se
     db.refresh(new_user)
 
     print(f"[AUTH][SIGNUP] id={new_user.id} email={new_user.email}")
+
     return new_user
 
 
 # =====================================================
-# ======================== LOGIN =======================
+# LOGIN USER
 # =====================================================
-
 def login_user(email: str, password: str, response: Response, db: Session):
+
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid credentials")
@@ -106,8 +97,6 @@ def login_user(email: str, password: str, response: Response, db: Session):
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     token = create_access_token({"user_id": user.id, "email": user.email})
-
-    print(f"[AUTH][LOGIN] user_id={user.id} email={user.email} token_len={len(token)}")
 
     # Optional cookie
     response.set_cookie(
@@ -130,9 +119,8 @@ def login_user(email: str, password: str, response: Response, db: Session):
 
 
 # =====================================================
-# ==================== CURRENT USER ===================
+# CURRENT LOGGED IN USER
 # =====================================================
-
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
