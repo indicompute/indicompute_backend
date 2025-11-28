@@ -91,7 +91,9 @@ bearer_scheme = HTTPBearer(auto_error=True)
 
 
 # --------------- CORS SETUP -------------------
-origins = ["*"]
+origins = ["https://app.indicompute.in",
+           "http://localhost:3000",
+           ]
 
 app.add_middleware(
     CORSMiddleware,
