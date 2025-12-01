@@ -2,46 +2,35 @@ from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, status, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from passlib.context import CryptContext
+from passlib.hash import argon2
 import jwt
 import os
 
 from database import get_db
 from models import User
 
-# Load env from main.py (already loaded globally)
+
+# Load env
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
 
-# Check env loaded
 print("AUTH_SECRET_KEY =", SECRET_KEY)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer(auto_error=True)
 
 
 # =====================================================
-# PASSWORD HASHING
+# PASSWORD HASHING (Argon2 — recommended & stable)
 # =====================================================
+
 def hash_password(plain: str) -> str:
-    """Fix bcrypt crash: truncate + clean string."""
-    plain = str(plain).strip()
-
-    # bcrypt max input length = 72 bytes
-    if len(plain) > 72:
-        plain = plain[:72]
-
-    return pwd_context.hash(plain)
-
+    """Hash password using Argon2 (no 72-byte limit issue)."""
+    return argon2.hash(plain.strip())
 
 def verify_password(plain: str, hashed: str) -> bool:
-    plain = str(plain).strip()
-
-    if len(plain) > 72:
-        plain = plain[:72]
-
-    return pwd_context.verify(plain, hashed)
+    """Verify Argon2 hashed password."""
+    return argon2.verify(plain.strip(), hashed)
 
 
 # =====================================================
